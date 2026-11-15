@@ -23,6 +23,16 @@ test/               采集逻辑测试（node --test）
 | POST | /collab/api/evidence | 写一条证据（带 artifact 会算 sha256） |
 | POST | /collab/api/review | 记录验收决策 accepted / rejected / changes_requested / inconclusive |
 
+## 安装（bundle 形态）
+
+包已声明 `dsh.bundle`，装上去就自动成为 profile 层，不需要手写 patch：
+
+```sh
+dsh plugin --profile web add <包名或本地路径>
+```
+
+证据目录默认 `~/.cairnweave`，要改就在 profile 的 `cordis.patch.yml` 里覆盖 `collab` 行的 `config.root`。
+
 ## 在隔离环境里试
 
 ```sh

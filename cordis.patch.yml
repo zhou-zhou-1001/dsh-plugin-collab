@@ -1,0 +1,5 @@
+# dsh-plugin-collab bundle layer：装上即生效，不需要用户手写 patch。
+# 证据目录默认落在 ~/.cairnweave；需要改路径就在自己的 profile patch 里覆盖 config。
+- insert:
+    - id: collab
+      name: dsh-plugin-collab

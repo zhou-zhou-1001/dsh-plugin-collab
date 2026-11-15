@@ -17,6 +17,7 @@ function makeCtx() {
     on: (name, fn) => { handlers.push({ name, fn }); return () => {}; },
     effect: (fn) => { const d = fn(); return () => {}; },
     get: (name) => (name === 'webServer' ? ctx.webServer : undefined),
+    inject: (deps, fn) => { if (!deps.includes('webServer') || ctx.webServer) fn(ctx); return () => {}; },
   };
   return {
     ctx,
@@ -27,7 +28,7 @@ function makeCtx() {
 }
 
 function readRecords(dir) {
-  const file = path.join(dir, '.cairnweave', 'events.ndjson');
+  const file = path.join(dir, 'events.ndjson');
   if (!existsSync(file)) return [];
   return readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }

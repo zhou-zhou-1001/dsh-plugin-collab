@@ -23,7 +23,7 @@ function nowIso() {
 
 class EvidenceLog {
   constructor(root) {
-    this.dir = path.join(root, DIR_NAME);
+    this.dir = root;
     this.file = path.join(this.dir, 'events.ndjson');
     this.records = [];
     this.ready = this.load();
@@ -122,8 +122,8 @@ async function readJson(req, limit = 1024 * 512) {
 }
 
 export function apply(ctx, config = {}) {
-  const webServer = ctx.get('webServer');
   // 默认落在用户家目录，不能跟 cwd 跑——否则从哪个目录启动就往哪儿写
+  // root 就是证据目录本身；默认 ~/.cairnweave
   const root = config.root || path.join(os.homedir(), '.cairnweave');
   const log = new EvidenceLog(root);
   const disposers = [];
@@ -229,7 +229,10 @@ export function apply(ctx, config = {}) {
     }
   }));
 
-  if (webServer) {
+  // webServer 可能在插件激活之后才挂载（实测 web profile 就是），必须等它就绪。
+  // headless/tui 没有这个服务，回调不会执行，采集仍然工作。
+  ctx.inject(['webServer'], (child) => {
+    const webServer = child.webServer;
     disposers.push(webServer.register({
       path: `${ROUTE_PREFIX}/state`,
       kind: 'prefix',
@@ -286,7 +289,7 @@ export function apply(ctx, config = {}) {
       },
     }));
 
-  }
+    });
 
   ctx.effect(() => () => {
     for (const dispose of disposers) dispose();
