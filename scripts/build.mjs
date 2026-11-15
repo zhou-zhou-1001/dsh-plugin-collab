@@ -11,8 +11,24 @@ const pkg = JSON.parse(await readFile(path.join(pkgRoot, 'package.json'), 'utf8'
 
 await mkdir(path.join(pkgRoot, 'lib'), { recursive: true });
 
-// 宿主半边：ESM，直接拷贝（Node 侧由 cordis 加载）
-await cp(path.join(pkgRoot, 'src/index.js'), path.join(pkgRoot, 'lib/index.js'));
+// 宿主半边：esbuild 打包成自包含 ESM。
+// CairnWeave（digest 规则）在构建期内联进来——运行期不再依赖 file: 路径，
+// 这样别人 pnpm add 这个包就能跑，不需要先有我们的目录结构。
+const host = await build({
+  entryPoints: [path.join(pkgRoot, 'src/index.js')],
+  bundle: true,
+  write: false,
+  format: 'esm',
+  platform: 'node',
+  target: 'node22',
+  external: ['@deepseek-ai/*'],
+  // CairnWeave 是 CJS，内联进 ESM 后需要真的 require 才能拿到 node: 内建模块
+  banner: {
+    js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);",
+  },
+  logLevel: 'warning',
+});
+await writeFile(path.join(pkgRoot, 'lib/index.js'), host.outputFiles[0].text, 'utf8');
 
 // 客户端半边：esbuild 打 CJS，外部依赖交给模块表
 const result = await build({

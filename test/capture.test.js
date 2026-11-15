@@ -14,11 +14,16 @@ function makeCtx() {
   const ctx = {
     webServer: { register: (r) => { routes.push(r); return () => {}; } },
     sessions: {},
-    on: (name, fn) => { if (name === 'session/event') handlers.push(fn); return () => {}; },
+    on: (name, fn) => { handlers.push({ name, fn }); return () => {}; },
     effect: (fn) => { const d = fn(); return () => {}; },
     get: () => undefined,
   };
-  return { ctx, emit: (session, event) => handlers.forEach((h) => h(session, event)), routes };
+  return {
+    ctx,
+    routes,
+    emit: (session, event) => handlers.filter((h) => h.name === 'session/event').forEach((h) => h.fn(session, event)),
+    fire: (name, session) => handlers.filter((h) => h.name === name).forEach((h) => h.fn(session)),
+  };
 }
 
 function readRecords(dir) {
@@ -79,4 +84,31 @@ test('路由注册了 state / evidence / review 三个', () => {
   apply(ctx, { root });
   const paths = routes.map((r) => r.path).sort();
   assert.deepEqual(paths, ['/collab/api/evidence', '/collab/api/review', '/collab/api/state']);
+});
+
+test('子 agent 生命周期：created → task.started，disposed → handoff', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'collab-'));
+  const { ctx, fire } = makeCtx();
+  apply(ctx, { root });
+  const child = { id: 'child-1', header: { origin: 'subagent', parentSession: 'root-1', delegationDepth: 1 } };
+  fire('session/created', child);
+  fire('session/disposed', child);
+  await new Promise((r) => setTimeout(r, 50));
+
+  const rows = readRecords(root);
+  const started = rows.filter((r) => r.kind === 'task.started');
+  const handoff = rows.filter((r) => r.kind === 'handoff');
+  assert.equal(started.length, 1);
+  assert.equal(started[0].task, 'child-1');
+  assert.equal(started[0].parent, 'root-1');
+  assert.equal(handoff.length, 1);
+});
+
+test('普通会话（非 subagent）不产生任务记录', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'collab-'));
+  const { ctx, fire } = makeCtx();
+  apply(ctx, { root });
+  fire('session/created', { id: 'root-1', header: {} });
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(readRecords(root).filter((r) => r.kind === 'task.started').length, 0);
 });

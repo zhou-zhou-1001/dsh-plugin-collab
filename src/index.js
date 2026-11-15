@@ -190,6 +190,39 @@ export function apply(ctx, config = {}) {
     }));
   }
 
+  // ---- 子 agent 生命周期 → task.started / handoff ----
+  // 依据 SessionHeader：origin === 'subagent' 才是子 agent（parentSession 单独存在不够），
+  // delegationDepth 表示派了几层。
+  function taskFromSession(session) {
+    const header = session?.header || {};
+    if (header.origin !== 'subagent') return null;
+    return {
+      task: session.id,
+      parent: header.parentSession || null,
+      depth: header.delegationDepth || 1,
+    };
+  }
+
+  disposers.push(ctx.on('session/created', (session) => {
+    try {
+      const info = taskFromSession(session);
+      if (!info) return;
+      void log.append({ kind: 'task.started', ...info, agent: 'subagent' });
+    } catch (error) {
+      console.error(`[collab] session/created capture error: ${error.message}`);
+    }
+  }));
+
+  disposers.push(ctx.on('session/disposed', (session) => {
+    try {
+      const info = taskFromSession(session);
+      if (!info) return;
+      void log.append({ kind: 'handoff', ...info, agent: 'subagent', status: 'completed' });
+    } catch (error) {
+      console.error(`[collab] session/disposed capture error: ${error.message}`);
+    }
+  }));
+
   disposers.push(ctx.webServer.register({
     path: `${ROUTE_PREFIX}/state`,
     kind: 'prefix',
