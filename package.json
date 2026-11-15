@@ -25,5 +25,8 @@
       ],
       "platform": "web"
     }
+  },
+  "dependencies": {
+    "cairnweave": "file:../agent-integrity-guard"
   }
 }

@@ -3,9 +3,11 @@
 // 设计口径见 docs/DESIGN.md。
 
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
+
+// digest 与 canonical 规则只有一份，来自 CairnWeave 本体
+import { digest as digestOf } from 'cairnweave/artifact-store';
 
 export const name = 'collab-evidence';
 export const inject = ['webServer'];
@@ -15,17 +17,6 @@ const ROUTE_PREFIX = '/collab/api';
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-// artifact-store 的 canonical 规则：键名排序，无空格
-function canonical(value) {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${canonical(value[k])}`).join(',')}}`;
-}
-
-function digestOf(artifact) {
-  return createHash('sha256').update(canonical(artifact)).digest('hex');
 }
 
 class EvidenceLog {
