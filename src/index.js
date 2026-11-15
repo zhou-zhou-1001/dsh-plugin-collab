@@ -11,7 +11,8 @@ import path from 'node:path';
 import { digest as digestOf } from 'cairnweave/artifact-store';
 
 export const name = 'collab-evidence';
-export const inject = ['webServer', 'sessions'];
+// webServer 是可选的：headless / tui profile 没有它，但采集仍然要工作
+export const inject = ['sessions'];
 
 const DIR_NAME = '.cairnweave';
 const ROUTE_PREFIX = '/collab/api';
@@ -60,8 +61,9 @@ class EvidenceLog {
     for (const r of this.records) {
       if (r.kind === 'evidence.attempt' && !r.artifact?.digest) {
         out.push({
-          path: `evidence:${r.id || r.task || '?'}`,
+          path: `evidence:${r.task || r.sessionId || '?'}`,
           value: r.tool || 'unknown tool',
+          detail: r.detail || '',
           why: '有产出声明，但没有 digest 或可复算物件。',
         });
       }
@@ -120,6 +122,7 @@ async function readJson(req, limit = 1024 * 512) {
 }
 
 export function apply(ctx, config = {}) {
+  const webServer = ctx.get('webServer');
   // 默认落在用户家目录，不能跟 cwd 跑——否则从哪个目录启动就往哪儿写
   const root = config.root || path.join(os.homedir(), '.cairnweave');
   const log = new EvidenceLog(root);
@@ -176,11 +179,14 @@ export function apply(ctx, config = {}) {
         if (!WRITE_TOOLS.test(tool)) return; // 查询类不算证据
 
         const artifact = d.message?.isError ? null : digestFromArguments(call.arguments);
+        // bash 之类把路径写在命令里的工具拿不到 digest，至少要把命令留下来供人工复核
+        const detail = typeof call.arguments === 'string' ? call.arguments.slice(0, 300) : '';
         void log.append({
           kind: 'evidence.attempt',
           sessionId,
           tool,
-          agent: 'main',
+          agent: session?.header?.origin === 'subagent' ? 'subagent' : 'main',
+          detail,
           artifact,
           source: { event: 'tool/result', seq: event.seq, callId, turn: d.turn, failed: !!d.message?.isError },
         });
@@ -223,61 +229,64 @@ export function apply(ctx, config = {}) {
     }
   }));
 
-  disposers.push(ctx.webServer.register({
-    path: `${ROUTE_PREFIX}/state`,
-    kind: 'prefix',
-    auth: 'required',
-    async handler(req, res) {
-      if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
-      await log.ready;
-      json(res, 200, log.state());
-    },
-  }));
+  if (webServer) {
+    disposers.push(webServer.register({
+      path: `${ROUTE_PREFIX}/state`,
+      kind: 'prefix',
+      auth: 'required',
+      async handler(req, res) {
+        if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
+        await log.ready;
+        json(res, 200, log.state());
+      },
+    }));
 
-  disposers.push(ctx.webServer.register({
-    path: `${ROUTE_PREFIX}/review`,
-    kind: 'exact',
-    auth: 'required',
-    async handler(req, res) {
-      if (req.method !== 'POST') return json(res, 405, { error: 'method not allowed' });
-      let body;
-      try { body = await readJson(req); } catch (error) { return json(res, 400, { error: error.message }); }
-      const allowed = ['accepted', 'rejected', 'changes_requested', 'inconclusive'];
-      if (!allowed.includes(body.decision)) {
-        return json(res, 422, { error: `decision must be one of ${allowed.join(', ')}` });
-      }
-      const row = await log.append({
-        kind: 'reviewed',
-        task: body.task,
-        decision: body.decision,
-        reviewer: body.reviewer || 'human',
-        producer: body.producer || null,
-        note: body.note || '',
-      });
-      json(res, row ? 201 : 500, row || { error: 'append failed' });
-    },
-  }));
+    disposers.push(webServer.register({
+      path: `${ROUTE_PREFIX}/review`,
+      kind: 'exact',
+      auth: 'required',
+      async handler(req, res) {
+        if (req.method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+        let body;
+        try { body = await readJson(req); } catch (error) { return json(res, 400, { error: error.message }); }
+        const allowed = ['accepted', 'rejected', 'changes_requested', 'inconclusive'];
+        if (!allowed.includes(body.decision)) {
+          return json(res, 422, { error: `decision must be one of ${allowed.join(', ')}` });
+        }
+        const row = await log.append({
+          kind: 'reviewed',
+          task: body.task,
+          decision: body.decision,
+          reviewer: body.reviewer || 'human',
+          producer: body.producer || null,
+          note: body.note || '',
+        });
+        json(res, row ? 201 : 500, row || { error: 'append failed' });
+      },
+    }));
 
-  disposers.push(ctx.webServer.register({
-    path: `${ROUTE_PREFIX}/evidence`,
-    kind: 'exact',
-    auth: 'required',
-    async handler(req, res) {
-      if (req.method !== 'POST') return json(res, 405, { error: 'method not allowed' });
-      let body;
-      try { body = await readJson(req); } catch (error) { return json(res, 400, { error: error.message }); }
-      const artifact = body.artifact || null;
-      const row = await log.append({
-        kind: 'evidence.attempt',
-        task: body.task,
-        tool: body.tool || 'manual',
-        agent: body.agent || 'main',
-        artifact: artifact ? { path: artifact.path, digest: digestOf(artifact) } : null,
-        source: { event: 'manual' },
-      });
-      json(res, row ? 201 : 500, row || { error: 'append failed' });
-    },
-  }));
+    disposers.push(webServer.register({
+      path: `${ROUTE_PREFIX}/evidence`,
+      kind: 'exact',
+      auth: 'required',
+      async handler(req, res) {
+        if (req.method !== 'POST') return json(res, 405, { error: 'method not allowed' });
+        let body;
+        try { body = await readJson(req); } catch (error) { return json(res, 400, { error: error.message }); }
+        const artifact = body.artifact || null;
+        const row = await log.append({
+          kind: 'evidence.attempt',
+          task: body.task,
+          tool: body.tool || 'manual',
+          agent: body.agent || 'main',
+          artifact: artifact ? { path: artifact.path, digest: digestOf(artifact) } : null,
+          source: { event: 'manual' },
+        });
+        json(res, row ? 201 : 500, row || { error: 'append failed' });
+      },
+    }));
+
+  }
 
   ctx.effect(() => () => {
     for (const dispose of disposers) dispose();

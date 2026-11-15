@@ -18,8 +18,8 @@
 
 | 项 | 卡在哪 |
 |---|---|
-| 真实会话采集 | 本机缺 DeepSeek 凭据（`~/.dsh/.credentials.yaml` 为空，openclaw 配置里 deepseek provider 没有 apiKey），`dsh headless` 直接 `MISSING_CREDENTIAL` |
-| 子 agent 采集的真实事件顺序 | 同上，只有单元测试，没有真跑过 |
+| ~~真实会话采集~~ | ✅ 2026-11-15 15:22 验证：headless 真会话采到子 agent 的 started/evidence/handoff，1 个子 agent = 1 started + 1 handoff |
+| ~~digest 可复算~~ | ✅ 对 `note.md` 独立复算 `b3393ab8…c8df`，与记录一致 |
 | 插件市场分发 | 需要有 `dsh.bundle` 声明（当前是 plain dependency），以及一个 index 条目 |
 
 ## 关键决定

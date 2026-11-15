@@ -16,7 +16,7 @@ function makeCtx() {
     sessions: {},
     on: (name, fn) => { handlers.push({ name, fn }); return () => {}; },
     effect: (fn) => { const d = fn(); return () => {}; },
-    get: () => undefined,
+    get: (name) => (name === 'webServer' ? ctx.webServer : undefined),
   };
   return {
     ctx,
