@@ -1,0 +1,84 @@
+{
+  "format": 1,
+  "title": {
+    "en": "CairnWeave Evidence Market",
+    "zh": "CairnWeave 证据市场"
+  },
+  "description": {
+    "en": "Bundles that keep agent output verifiable.",
+    "zh": "让 agent 的产出可以被核验的插件。"
+  },
+  "metadata": {
+    "categories": {
+      "evidence": {
+        "title": {
+          "en": "Evidence & Audit",
+          "zh": "证据与审计"
+        }
+      }
+    },
+    "labels": {
+      "open-source": {
+        "title": {
+          "en": "Open source",
+          "zh": "开源"
+        }
+      }
+    },
+    "sortKeys": {
+      "updated": {
+        "title": {
+          "en": "Updated",
+          "zh": "更新时间"
+        },
+        "order": "desc"
+      }
+    }
+  },
+  "plugins": [
+    {
+      "name": "dsh-plugin-collab",
+      "title": {
+        "en": "Collab Evidence Board",
+        "zh": "协同证据台"
+      },
+      "description": {
+        "en": "Inspect what each agent produced and whether it can be recomputed.",
+        "zh": "查看每个 agent 产出了什么、能不能被复算。"
+      },
+      "author": "zhou-zhou",
+      "repository": {
+        "url": "https://github.com/zhou-zhou-1001/dsh-plugin-collab"
+      },
+      "metadata": {
+        "category": "evidence",
+        "keywords": [
+          "evidence",
+          "audit",
+          "provenance",
+          "cairnweave"
+        ],
+        "labels": [
+          "open-source"
+        ],
+        "sortKeys": {
+          "updated": 1794729793
+        }
+      },
+      "versions": [
+        {
+          "version": "0.0.2",
+          "publishTimestamp": 1794729793,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/zhou-zhou-1001/dsh-plugin-collab",
+            "commit": "bad08ea1c5d10a9403f967c17d83f6c7d03707a4"
+          },
+          "engines": {
+            "dsh": ">=0.2.2-rc.1"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -36,6 +36,7 @@
   "dependencies": {},
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node --test test/capture.test.js"
+    "test": "node --test test/capture.test.js",
+    "market": "node scripts/market-index.mjs"
   }
 }
