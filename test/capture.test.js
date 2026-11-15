@@ -2,7 +2,7 @@
 // 运行：node --test test/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { apply } from '../src/index.js';
@@ -112,4 +112,30 @@ test('普通会话（非 subagent）不产生任务记录', async () => {
   fire('session/created', { id: 'root-1', header: {} });
   await new Promise((r) => setTimeout(r, 50));
   assert.equal(readRecords(root).filter((r) => r.kind === 'task.started').length, 0);
+});
+
+test('磁盘为准：文件被外部删除后，state 不再返回内存里的旧记录', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'collab-'));
+  const { ctx, routes } = makeCtx();
+  apply(ctx, { root });
+  const evidenceRoute = routes.find((r) => r.path === '/collab/api/evidence');
+  const stateRoute = routes.find((r) => r.path === '/collab/api/state');
+
+  const call = (route, body) => new Promise((resolve) => {
+    const req = { method: 'POST', async *[Symbol.asyncIterator]() { yield Buffer.from(JSON.stringify(body)); } };
+    const res = { writeHead() {}, end(payload) { resolve(JSON.parse(String(payload))); } };
+    route.handler(req, res);
+  });
+  const read = () => new Promise((resolve) => {
+    const req = { method: 'GET' };
+    const res = { writeHead() {}, end(payload) { resolve(JSON.parse(String(payload))); } };
+    stateRoute.handler(req, res);
+  });
+
+  await call(evidenceRoute, { task: 'a', tool: 'write' });
+  assert.equal((await read()).events, 1, '写入后应看到 1 条');
+
+  rmSync(path.join(root, 'events.ndjson'), { force: true });
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal((await read()).events, 0, '文件被删后不能再报内存里的旧记录');
 });

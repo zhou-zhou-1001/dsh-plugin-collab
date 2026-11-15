@@ -2,7 +2,7 @@
 // 采集 DSH 会话信号 → CairnWeave 证据记录 → 通过 webServer 路由给前端读取。
 // 设计口径见 docs/DESIGN.md。
 
-import { appendFile, mkdir, readFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, stat } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -26,7 +26,17 @@ class EvidenceLog {
     this.dir = root;
     this.file = path.join(this.dir, 'events.ndjson');
     this.records = [];
+    this.signature = null;
     this.ready = this.load();
+  }
+
+  async fingerprint() {
+    try {
+      const st = await stat(this.file);
+      return `${st.size}:${st.mtimeMs}`;
+    } catch {
+      return 'missing';
+    }
   }
 
   async load() {
@@ -38,7 +48,16 @@ class EvidenceLog {
       });
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
+      this.records = [];
     }
+    this.signature = await this.fingerprint();
+  }
+
+  /** 磁盘为准：文件被外部追加、删除或截断时重新读，避免内存与磁盘不一致。 */
+  async syncFromDisk() {
+    await this.ready;
+    const current = await this.fingerprint();
+    if (current !== this.signature) await this.load();
   }
 
   async append(record) {
@@ -47,6 +66,7 @@ class EvidenceLog {
     try {
       await appendFile(this.file, `${JSON.stringify(row)}\n`, 'utf8');
       this.records.push(row);
+      this.signature = await this.fingerprint();
       return row;
     } catch (error) {
       // 采集失败不许影响 agent 运行
@@ -239,7 +259,7 @@ export function apply(ctx, config = {}) {
       auth: 'required',
       async handler(req, res) {
         if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
-        await log.ready;
+        await log.syncFromDisk();
         json(res, 200, log.state());
       },
     }));
