@@ -48,6 +48,20 @@ const css = `
 .cw-empty { padding: 22px 14px; text-align: center; font-size: 12.5px;
   color: var(--dsw-alias-label-tertiary, #8b959b); border: 1px dashed var(--dsw-alias-border-l2, #ffffff1f);
   border-radius: var(--dsw-radius-md, 8px); }
+.cw-ev { border: 1px solid var(--dsw-alias-border-l2, #ffffff1f); border-radius: var(--dsw-radius-md, 8px); overflow: hidden; }
+.cw-ev + .cw-ev { margin-top: 8px; }
+.cw-ev-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px;
+  font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; color: inherit;
+  background: transparent; border: 0; }
+.cw-ev-head:hover { background: var(--dsw-alias-bg-multi-select, #eef1f4); }
+.cw-ev-tool { font-weight: 600; }
+.cw-ev-digest { margin-left: auto; font-family: var(--dsw-font-family-mono, ui-monospace, Menlo, monospace);
+  font-size: 11px; color: var(--dsw-alias-label-tertiary, #8b959b); }
+.cw-ev-body { padding: 0 14px 12px; }
+.cw-pre { margin: 0; padding: 10px 12px; font-family: var(--dsw-font-family-mono, ui-monospace, Menlo, monospace);
+  font-size: 11.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+  color: var(--dsw-alias-label-secondary, #5a666e); background: var(--dsw-alias-bg-base, #f5f6f7);
+  border: 1px solid var(--dsw-alias-border-l1, #ffffff0f); border-radius: var(--dsw-radius-sm, 8px); }
 .cw-error { padding: 10px 14px; font-size: 12.5px; border-radius: var(--dsw-radius-sm, 8px);
   color: var(--cw-danger); background: var(--cw-danger-wash); }
 @media (max-width: 640px) {
@@ -103,6 +117,30 @@ function TaskRow({ task, onReview }) {
   );
 }
 
+function EvidenceRow({ item }) {
+  const [open, setOpen] = useState(false);
+  const digest = item.artifact?.digest;
+  return h('div', { className: 'cw-ev' },
+    h('button', { className: 'cw-ev-head', onClick: () => setOpen((v) => !v), 'aria-expanded': open },
+      h('span', null, open ? '▾' : '▸'),
+      h('span', { className: 'cw-ev-tool' }, item.tool || 'unknown'),
+      h('span', { className: 'cw-chip ' + (digest ? 'ok' : 'gap') }, digest ? '有 digest' : '无 digest'),
+      h('span', { className: 'cw-ev-digest' }, digest ? digest.slice(0, 16) + '…' : (item.sessionId || '').slice(0, 12)),
+    ),
+    open && h('div', { className: 'cw-ev-body' },
+      h('pre', { className: 'cw-pre' },
+        [
+          `工具: ${item.tool || '—'}`,
+          `来源: ${JSON.stringify(item.source || {})}`,
+          item.artifact?.path ? `产物: ${item.artifact.path}` : '产物: （无可复算物件）',
+          digest ? `digest: ${digest}` : 'digest: —',
+          '',
+          item.detail ? `参数/命令:\n${item.detail}` : '（没有记录参数）',
+        ].join('\n')),
+    ),
+  );
+}
+
 export function CollabPage() {
   ensureStyle();
   const [state, setState] = useState(null);
@@ -147,6 +185,13 @@ export function CollabPage() {
           state.tasks.length === 0
             ? h('div', { className: 'cw-empty' }, '还没有捕获到任务。跑一次带子 agent 的会话，或用 POST /collab/api/evidence 手动写入。')
             : h('div', { className: 'cw-list' }, state.tasks.map((t) => h(TaskRow, { key: t.id, task: t, onReview: review }))),
+          h('div', { className: 'cw-section' },
+            h('h2', null, '证据'),
+            h('span', { className: 'cw-count' }, `${state.evidence.length} 条`),
+          ),
+          state.evidence.length === 0
+            ? h('div', { className: 'cw-empty' }, '还没有证据记录。')
+            : h('div', null, state.evidence.slice(-20).reverse().map((e, i) => h(EvidenceRow, { key: i, item: e }))),
           h('div', { className: 'cw-section' },
             h('h2', null, '未证明清单'),
             h('span', { className: 'cw-count' }, `${state.gaps.length} 项`),

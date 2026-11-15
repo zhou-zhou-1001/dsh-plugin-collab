@@ -282,6 +282,7 @@ export function apply(ctx, config = {}) {
           task: body.task,
           tool: body.tool || 'manual',
           agent: body.agent || 'main',
+          detail: typeof body.detail === 'string' ? body.detail.slice(0, 300) : '',
           artifact: artifact ? { path: artifact.path, digest: digestOf(artifact) } : null,
           source: { event: 'manual' },
         });
