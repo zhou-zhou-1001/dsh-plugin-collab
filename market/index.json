@@ -62,17 +62,17 @@
           "open-source"
         ],
         "sortKeys": {
-          "updated": 1794729793
+          "updated": 1794730672
         }
       },
       "versions": [
         {
-          "version": "0.0.2",
-          "publishTimestamp": 1794729793,
+          "version": "0.0.3",
+          "publishTimestamp": 1794730672,
           "source": {
             "type": "git",
             "url": "https://github.com/zhou-zhou-1001/dsh-plugin-collab",
-            "commit": "bad08ea1c5d10a9403f967c17d83f6c7d03707a4"
+            "commit": "18f854f46d7465d8ffd8d4eb73d8ead09b71582e"
           },
           "engines": {
             "dsh": ">=0.2.2-rc.1"
