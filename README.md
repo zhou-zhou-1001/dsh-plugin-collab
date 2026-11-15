@@ -8,9 +8,11 @@ CairnWeave 的 DeepSeek Harness 插件：把「谁产出了什么、谁验的、
 ## 结构
 
 ```
-src/index.js     宿主插件：证据日志 + /collab/api 路由
-src/client.js    客户端插件源码（手写闭包工厂，见下方说明）
-lib/             实际被加载的产物（src 改完 cp 过去）
+src/index.js       宿主插件：证据日志 + /collab/api 路由
+src/client.js       客户端插件（ESM 源码）
+scripts/build.mjs   构建：拷贝宿主 + esbuild 打包客户端并套闭包工厂外壳
+lib/                产物（npm run build 生成，不要手改）
+test/               采集逻辑测试（node --test）
 ```
 
 ## 接口
@@ -34,6 +36,12 @@ dsh plugin --profile web add file:$PWD
 dsh web --port 3098 --no-open
 ```
 
-## 为什么手写 client 产物
+## 构建
 
-DSH 的 client bundle 必须是 `window.__ModuleLoader__.load({id, factory})` 闭包工厂格式，仓库里的 tsdown preset 依赖 monorepo 内部模块，第三方拿不到。v0.1 直接手写产物；下一步换 esbuild 打包 + 套壳，形状不变。
+```sh
+npm install
+npm run build   # src → lib
+npm test        # 采集逻辑测试
+```
+
+DSH 的 client bundle 必须是 `window.__ModuleLoader__.load({id, factory})` 闭包工厂格式，仓库里的 tsdown preset 依赖 monorepo 内部模块，第三方拿不到，所以用 esbuild 打包后自己套壳（见 `scripts/build.mjs`）。

@@ -15,7 +15,8 @@
     "@deepseek-ai/cordis": "^4.0.0"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.0"
+    "@deepseek-ai/cordis": "^4.0.0",
+    "esbuild": "^0.24.0"
   },
   "dsh": {
     "client": {
@@ -28,5 +29,9 @@
   },
   "dependencies": {
     "cairnweave": "file:../agent-integrity-guard"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/capture.test.js"
   }
 }
