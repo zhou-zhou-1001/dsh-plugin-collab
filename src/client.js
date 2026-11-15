@@ -1,38 +1,125 @@
-// 客户端半边源码：ESM，构建时打包成 DSH 要求的闭包工厂格式（见 scripts/build.mjs）。
-// 只通过 ctx.slots 注册，不碰 ctx 之外的东西；数据走 /collab/api。
-import { createElement as h, useCallback, useEffect, useState } from 'react';
+// 客户端半边源码（ESM）——构建时打包成 DSH 闭包工厂格式。
+// 样式全部走 DSH 主题 token，不写死颜色：浅色/深色主题都能用。
+import { createElement as h, Fragment, useCallback, useEffect, useState } from 'react';
 
-const S = {
-  page: { padding: '32px 40px', fontFamily: "-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif", color: '#101619', maxWidth: '1100px' },
-  h1: { fontSize: '26px', margin: '0 0 6px', letterSpacing: '-0.4px' },
-  sub: { color: '#5a666e', fontSize: '13px', margin: '0 0 24px' },
-  stats: { display: 'flex', gap: '28px', margin: '0 0 28px', paddingBottom: '18px', borderBottom: '1px solid #e2e5e3' },
-  statNum: { fontSize: '24px', fontWeight: 700, display: 'block', lineHeight: 1.1 },
-  statLab: { fontSize: '12px', color: '#8b959b' },
-  gapNum: { color: '#b3261e' },
-  section: { fontSize: '15px', fontWeight: 700, margin: '26px 0 8px' },
-  row: { display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 0', borderBottom: '1px solid #eef0ee', fontSize: '13px' },
-  code: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '11.5px', color: '#5a666e' },
-  gap: { color: '#b3261e', fontWeight: 600 },
-  btn: { font: 'inherit', fontSize: '12px', padding: '4px 10px', borderRadius: '4px', border: '1px solid #101619', background: 'transparent', cursor: 'pointer' },
-  empty: { color: '#8b959b', fontSize: '13px', padding: '14px 0' },
-};
+const css = `
+.cw-page { padding: 28px 32px 48px; max-width: 980px; margin: 0 auto;
+  color: var(--dsw-alias-label-primary, #101619); font-size: 13px; }
+.cw-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.cw-title { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.2px; }
+.cw-sub { margin: 6px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary, #8b959b); }
+.cw-path { font-family: var(--dsw-font-family-mono, ui-monospace, Menlo, monospace); word-break: break-all; }
+.cw-stats { display: flex; flex-wrap: wrap; gap: 0; margin: 22px 0 4px;
+  border: 1px solid var(--dsw-alias-border-l2, #ffffff1f); border-radius: var(--dsw-radius-md, 8px); overflow: hidden; }
+.cw-stat { flex: 1 1 120px; padding: 12px 16px; border-right: 1px solid var(--dsw-alias-border-l2, #ffffff1f); }
+.cw-stat:last-child { border-right: 0; }
+.cw-stat-num { display: block; font-size: 22px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.cw-stat-num.is-gap { color: var(--cw-danger); }
+.cw-stat-label { display: block; margin-top: 2px; font-size: 11.5px; color: var(--dsw-alias-label-tertiary, #8b959b); }
+.cw-section { display: flex; align-items: baseline; gap: 8px; margin: 28px 0 10px; }
+.cw-section h2 { font-size: 13.5px; font-weight: 600; margin: 0; }
+.cw-count { font-size: 12px; color: var(--dsw-alias-label-tertiary, #8b959b); font-variant-numeric: tabular-nums; }
+.cw-list { display: flex; flex-direction: column; gap: 8px; }
+.cw-task { display: flex; align-items: center; gap: 12px; padding: 12px 14px; flex-wrap: wrap;
+  border: 1px solid var(--dsw-alias-border-l2, #ffffff1f); border-radius: var(--dsw-radius-md, 8px);
+  background: var(--dsw-alias-bg-module-platform, #f7f8f7); }
+.cw-task-main { flex: 1 1 220px; min-width: 0; }
+.cw-task-id { font-weight: 600; font-size: 13px; word-break: break-all; }
+.cw-task-meta { margin-top: 3px; font-size: 11.5px; color: var(--dsw-alias-label-tertiary, #8b959b); }
+.cw-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; font-size: 11px; font-weight: 600;
+  border-radius: 999px; white-space: nowrap; }
+.cw-chip.gap { color: var(--cw-danger); background: var(--cw-danger-wash); }
+.cw-chip.ok { color: var(--cw-ok); background: var(--cw-ok-wash); }
+.cw-chip.pending { color: var(--cw-warn); background: var(--cw-warn-wash); }
+.cw-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.cw-btn { font: inherit; font-size: 12px; line-height: 1.4; padding: 5px 10px; cursor: pointer;
+  color: var(--dsw-alias-label-primary, #101619); background: transparent;
+  border: 1px solid var(--dsw-alias-border-l3, #ffffff29); border-radius: var(--dsw-radius-sm, 8px); }
+.cw-btn:hover { background: var(--dsw-alias-bg-multi-select, #eef1f4); }
+.cw-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cw-table th { text-align: left; font-weight: 600; font-size: 11.5px; padding: 6px 10px;
+  color: var(--dsw-alias-label-tertiary, #8b959b); border-bottom: 1px solid var(--dsw-alias-border-l3, #ffffff29); }
+.cw-table td { padding: 8px 10px; vertical-align: top; border-bottom: 1px solid var(--dsw-alias-border-l1, #ffffff0f); }
+.cw-table tr:last-child td { border-bottom: 0; }
+.cw-col-path { font-family: var(--dsw-font-family-mono, ui-monospace, Menlo, monospace);
+  font-size: 11.5px; color: var(--dsw-alias-label-secondary, #5a666e); word-break: break-all; width: 34%; }
+.cw-col-val { width: 18%; color: var(--cw-danger); font-family: var(--dsw-font-family-mono, ui-monospace, Menlo, monospace); font-size: 11.5px; }
+.cw-col-why { color: var(--dsw-alias-label-secondary, #5a666e); }
+.cw-empty { padding: 22px 14px; text-align: center; font-size: 12.5px;
+  color: var(--dsw-alias-label-tertiary, #8b959b); border: 1px dashed var(--dsw-alias-border-l2, #ffffff1f);
+  border-radius: var(--dsw-radius-md, 8px); }
+.cw-error { padding: 10px 14px; font-size: 12.5px; border-radius: var(--dsw-radius-sm, 8px);
+  color: var(--cw-danger); background: var(--cw-danger-wash); }
+@media (max-width: 640px) {
+  .cw-page { padding: 20px 16px 40px; }
+  .cw-stat { flex-basis: 50%; }
+  .cw-actions { width: 100%; }
+}
+`;
 
-function stat(value, label, isGap) {
-  return h('div', { key: label }, h('b', { style: isGap && value > 0 ? { ...S.statNum, ...S.gapNum } : S.statNum }, String(value)), h('span', { style: S.statLab }, label));
+// 语义色：深浅主题都要够对比，所以不用 token 里的背景色，用固定的中亮度色
+const themeVars = `
+.cw-root { --cw-danger: #e5484d; --cw-danger-wash: rgba(229,72,77,0.12);
+  --cw-ok: #30a46c; --cw-ok-wash: rgba(48,164,108,0.14);
+  --cw-warn: #d97706; --cw-warn-wash: rgba(217,119,6,0.14); }
+`;
+
+let styleInjected = false;
+function ensureStyle() {
+  if (styleInjected || typeof document === 'undefined') return;
+  const tag = document.createElement('style');
+  tag.dataset.plugin = 'dsh-plugin-collab';
+  tag.textContent = themeVars + css;
+  document.head.appendChild(tag);
+  styleInjected = true;
+}
+
+function Stat({ value, label, danger }) {
+  return h('div', { className: 'cw-stat' },
+    h('b', { className: danger && value > 0 ? 'cw-stat-num is-gap' : 'cw-stat-num' }, String(value)),
+    h('span', { className: 'cw-stat-label' }, label),
+  );
+}
+
+function TaskRow({ task, onReview }) {
+  const decided = task.review ? task.review.decision : null;
+  const chip = task.evidence === 0
+    ? h('span', { className: 'cw-chip gap' }, '无证据')
+    : decided === 'accepted'
+      ? h('span', { className: 'cw-chip ok' }, '已验收')
+      : h('span', { className: 'cw-chip pending' }, decided || '待验收');
+
+  return h('div', { className: 'cw-task' },
+    h('div', { className: 'cw-task-main' },
+      h('div', { className: 'cw-task-id' }, task.id),
+      h('div', { className: 'cw-task-meta' },
+        `证据 ${task.evidence} · 交接 ${task.handoffs}${task.parent ? ' · 来源 ' + task.parent : ''}`),
+    ),
+    chip,
+    h('div', { className: 'cw-actions' },
+      h('button', { className: 'cw-btn', onClick: () => onReview(task.id, 'accepted') }, '接受'),
+      h('button', { className: 'cw-btn', onClick: () => onReview(task.id, 'changes_requested') }, '要求修改'),
+    ),
+  );
 }
 
 export function CollabPage() {
+  ensureStyle();
   const [state, setState] = useState(null);
   const [err, setErr] = useState('');
 
   const load = useCallback(() => {
     fetch('/collab/api/state', { headers: { accept: 'application/json' } })
       .then((r) => r.json())
-      .then(setState)
+      .then((next) => { setState(next); setErr(''); })
       .catch((e) => setErr(String(e.message || e)));
   }, []);
-  useEffect(load, [load]);
+  // 首次加载 + 每 5 秒刷新：协同场景里数据一直在变，不能只读一次
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, 5000);
+    return () => clearInterval(timer);
+  }, [load]);
 
   const review = useCallback((task, decision) => {
     fetch('/collab/api/review', {
@@ -42,39 +129,54 @@ export function CollabPage() {
     }).then(load);
   }, [load]);
 
-  if (err) return h('div', { style: S.page }, h('p', { style: { color: '#b3261e' } }, `读不到证据记录：${err}`));
-  if (!state) return h('div', { style: S.page }, h('p', { style: S.sub }, '读取中…'));
-
-  const gaps = state.gaps || [];
-  return h('div', { style: S.page },
-    h('h1', { style: S.h1 }, '证据链'),
-    h('p', { style: S.sub }, `${state.events} 条记录 · 起点 ${state.root}`),
-    h('div', { style: S.stats },
-      stat(gaps.length, '未证明', true),
-      stat((state.tasks || []).length, '任务'),
-      stat((state.evidence || []).length, '证据尝试'),
-      stat((state.reviews || []).length, '验收决策'),
-    ),
-    h('h2', { style: S.section }, '任务'),
-    (state.tasks || []).length === 0
-      ? h('p', { style: S.empty }, '还没有捕获到任务。跑一次带子 agent 的会话，或者用 POST /collab/api/evidence 手动写入。')
-      : (state.tasks || []).map((t) => h('div', { key: t.id, style: S.row },
-          h('div', null, h('b', null, t.id), ' ', h('span', { style: S.code }, t.status || '')),
-          h('div', null,
-            h('span', { style: S.code }, `证据 ${t.evidence} · 交接 ${t.handoffs} · ${t.review ? t.review.decision : '未验收'}`),
-            ' ',
-            h('button', { style: S.btn, onClick: () => review(t.id, 'accepted') }, '接受'),
-            ' ',
-            h('button', { style: S.btn, onClick: () => review(t.id, 'changes_requested') }, '要求修改'),
+  const body = err
+    ? h('div', { className: 'cw-error' }, `读不到证据记录：${err}`)
+    : !state
+      ? h('div', { className: 'cw-empty' }, '读取中…')
+      : h(Fragment, null,
+          h('div', { className: 'cw-stats' },
+            h(Stat, { value: state.gaps.length, label: '未证明', danger: true }),
+            h(Stat, { value: state.tasks.length, label: '任务' }),
+            h(Stat, { value: state.evidence.length, label: '证据' }),
+            h(Stat, { value: state.reviews.length, label: '验收' }),
           ),
-        )),
-    h('h2', { style: S.section }, '未证明清单'),
-    gaps.length === 0
-      ? h('p', { style: S.empty }, '没有未证明项。')
-      : gaps.map((g, i) => h('div', { key: i, style: S.row },
-          h('div', null, h('span', { style: S.gap }, g.value), ' ', h('span', { style: S.code }, g.path)),
-          h('div', { style: { color: '#5a666e', fontSize: '12px' } }, g.why),
-        )),
+          h('div', { className: 'cw-section' },
+            h('h2', null, '任务'),
+            h('span', { className: 'cw-count' }, `${state.tasks.length} 个`),
+          ),
+          state.tasks.length === 0
+            ? h('div', { className: 'cw-empty' }, '还没有捕获到任务。跑一次带子 agent 的会话，或用 POST /collab/api/evidence 手动写入。')
+            : h('div', { className: 'cw-list' }, state.tasks.map((t) => h(TaskRow, { key: t.id, task: t, onReview: review }))),
+          h('div', { className: 'cw-section' },
+            h('h2', null, '未证明清单'),
+            h('span', { className: 'cw-count' }, `${state.gaps.length} 项`),
+          ),
+          state.gaps.length === 0
+            ? h('div', { className: 'cw-empty' }, '没有未证明项。')
+            : h('table', { className: 'cw-table' },
+                h('thead', null, h('tr', null,
+                  h('th', null, '来源字段'), h('th', null, '值'), h('th', null, '为什么算缺口'))),
+                h('tbody', null, state.gaps.map((g, i) => h('tr', { key: i },
+                  h('td', { className: 'cw-col-path' }, g.path),
+                  h('td', { className: 'cw-col-val' }, g.value),
+                  h('td', { className: 'cw-col-why' }, g.why),
+                ))),
+              ),
+        );
+
+  return h('div', { className: 'cw-root' },
+    h('div', { className: 'cw-page' },
+      h('div', { className: 'cw-head' },
+        h('div', null,
+          h('h1', { className: 'cw-title' }, '证据链'),
+          h('p', { className: 'cw-sub' },
+            state ? `${state.events} 条记录 · 起点 ` : '读取中…',
+            state ? h('span', { className: 'cw-path' }, state.root) : null),
+        ),
+        h('button', { className: 'cw-btn', onClick: load }, '刷新'),
+      ),
+      body,
+    ),
   );
 }
 
