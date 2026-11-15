@@ -34,3 +34,11 @@
 1. 拿到可用凭据后，跑真实会话，核对采集条数与 catalog 一致
 2. 加 `dsh.bundle` 声明，让别人 `dsh plugin add` 后自动成为 profile 层
 3. 接插件市场 index
+
+## 桌面端安装验证（2026-11-15 15:49）
+
+- 桌面版 `DeepSeek Harness 0.2.2-rc.3`（官方签名 / 公证通过）已装到 `/Applications`
+- 桌面 profile 由 Electron 独占，CLI 拒绝 `dsh plugin --profile desktop`
+- 走应用内 Plugins 页安装成功：本地目录 → 安装 → 立即启用 → 侧栏出现 `collab` → 页面渲染
+- 桌面端 API 读写均正常，证据落 `~/.cairnweave/events.ndjson`
+- 自动化方式：`--remote-debugging-port=9222` + Node 内置 WebSocket 驱动 CDP（脚本在 /tmp/cdp.mjs，一次性）
