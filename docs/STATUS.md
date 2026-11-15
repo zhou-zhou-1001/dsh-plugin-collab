@@ -42,3 +42,10 @@
 - 走应用内 Plugins 页安装成功：本地目录 → 安装 → 立即启用 → 侧栏出现 `collab` → 页面渲染
 - 桌面端 API 读写均正常，证据落 `~/.cairnweave/events.ndjson`
 - 自动化方式：`--remote-debugging-port=9222` + Node 内置 WebSocket 驱动 CDP（脚本在 /tmp/cdp.mjs，一次性）
+
+## 发布状态（2026-11-15 16:05）
+
+- 公开仓库：https://github.com/zhou-zhou-1001/dsh-plugin-collab（PUBLIC / main）
+- 市场索引：https://raw.githubusercontent.com/zhou-zhou-1001/dsh-plugin-collab/main/market/index.json （HTTP 200）
+- 索引通过官方 `parseMarketIndex` 校验
+- **端到端验证**：全新 profile 用索引给出的 git spec 安装成功，`/collab/api/state` 返回 200
